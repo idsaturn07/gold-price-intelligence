@@ -1,10 +1,11 @@
-streamlit
+azure-functions
+azure-storage-blob
+tensorflow
+yfinance
 pandas
 numpy
-yfinance
 scikit-learn
-tensorflow
-requests
+joblib
 textblob
-openai
 python-dotenv
+requests
