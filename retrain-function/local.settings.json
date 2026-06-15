@@ -1,0 +1,9 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsStorage": "your_storage_connection_string_here",
+    "BLOB_CONNECTION_STRING": "your_blob_connection_string_here",
+    "NEWS_API_KEY": "your_newsapi_key_here"
+  }
+}
