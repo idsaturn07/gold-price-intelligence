@@ -1,0 +1,22 @@
+# Secrets
+.env
+
+# Model artifacts (train locally with python model.py)
+*.pkl
+*.keras
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# VS Code
+tempCodeRunnerFile.py
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
