@@ -1,26 +1,52 @@
-from groq import Groq
-import os
+from azure.identity import DefaultAzureCredential
+from azure.ai.projects import AIProjectClient
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+ENDPOINT      = os.getenv("AZURE_PROJECT_ENDPOINT")
+AGENT_NAME    = os.getenv("AZURE_AGENT_NAME", "gold-bot")
+AGENT_VERSION = os.getenv("AZURE_AGENT_VERSION", "2")
 
-def ask_ai(prediction, sentiment, question):
-    prompt = f"""
-    You are a financial assistant.
+# Initialize once at module level
+project_client = AIProjectClient(
+    endpoint=ENDPOINT,
+    credential=DefaultAzureCredential()
+)
+openai_client = project_client.get_openai_client()
 
-    Gold price (per gram): {prediction}
-    Market sentiment: {sentiment}
 
-    User question: {question}
+def ask_ai(price_per_gram, price_per_ounce, sentiment, question, country="Global", currency="USD", history=None):
+    messages = []
 
-    Give a clear, helpful, and human-like answer.
-    """
+    # Cap history to last 20 messages (10 exchanges) to avoid huge API calls
+    if history:
+        history = history[-20:]
+        for msg in history:
+            messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
 
-    response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[{"role": "user", "content": prompt}]
-    )
+    # Natural context injection
+    messages.append({
+        "role": "user",
+        "content": f"[Market context: predicted gold price for tomorrow is {price_per_gram:.2f}/gram, sentiment is {sentiment}, region is {country}]\n\n{question}"
+    })
 
-    return response.choices[0].message.content
+    try:
+        response = openai_client.responses.create(
+            input=messages,
+            extra_body={
+                "agent_reference": {
+                    "name"   : AGENT_NAME,
+                    "version": AGENT_VERSION,
+                    "type"   : "agent_reference"
+                }
+            }
+        )
+        return response.output_text or "⚠️ No response received. Please try again."
+
+    except Exception as e:
+        return f"❌ AI Assistant Error: {str(e)}"
