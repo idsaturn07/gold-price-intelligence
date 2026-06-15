@@ -1,0 +1,11 @@
+azure-functions
+azure-storage-blob
+tensorflow
+yfinance
+pandas
+numpy
+scikit-learn
+joblib
+textblob
+python-dotenv
+requests
