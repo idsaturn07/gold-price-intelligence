@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import requests
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from textblob import TextBlob
 import os
@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 import tensorflow as tf
 import random
 import time
+import joblib
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+import math
 
 np.random.seed(42)
 tf.random.set_seed(42)
@@ -19,21 +22,30 @@ random.seed(42)
 load_dotenv()
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
+MODEL_PATH   = "gold_model.keras"
+SCALER_PATH  = "gold_scaler.pkl"
+DATA_PATH    = "gold_data.pkl"
+METRICS_PATH = "gold_metrics.pkl"
 
-def get_gold_prediction():
+
+def train_and_save():
+    """Run this manually to retrain and save the model."""
+
+    print("Fetching gold data...")
     df = None
-
-    for _ in range(3):
+    for attempt in range(3):
         try:
             df = yf.download("GC=F", period="5y", progress=False)
             if df is not None and not df.empty:
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.droplevel(1)
                 break
-        except:
+        except Exception as e:
+            print(f"yfinance attempt {attempt + 1} failed: {e}")
             time.sleep(1)
 
     if df is None or df.empty:
+        print("yfinance failed after 3 attempts, using fallback data")
         prices = np.linspace(1800, 2200, 200)
         df = pd.DataFrame({
             "Open": prices,
@@ -46,18 +58,12 @@ def get_gold_prediction():
     df.columns.name = None
     df.index.name = None
 
-    print("\nDATA INFO")
-    print(df.head().to_string())
-    print("\nColumns:", df.columns)
-    print("Rows:", len(df))
-    print("Start:", df.index.min())
-    print("End:", df.index.max())
+    print(f"Data loaded: {len(df)} rows | {df.index.min()} to {df.index.max()}")
 
     scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(df)
 
     time_step = 100
-
     X, y = [], []
     for i in range(time_step, len(scaled_data)):
         X.append(scaled_data[i-time_step:i])
@@ -66,11 +72,14 @@ def get_gold_prediction():
     X, y = np.array(X), np.array(y)
 
     if len(X) == 0:
-        return df, df['Close'].values[-1], 0, 0
+        print("Not enough data to train.")
+        return
 
     split = int(len(X) * 0.8)
     X_train, X_test = X[:split], X[split:]
     y_train, y_test = y[:split], y[split:]
+
+    print(f"Training model on {len(X_train)} samples...")
 
     model = Sequential([
         Input(shape=(X.shape[1], X.shape[2])),
@@ -82,60 +91,92 @@ def get_gold_prediction():
     ])
 
     model.compile(optimizer='adam', loss='mse')
-    model.fit(X_train, y_train, epochs=50, batch_size=32, verbose=0)
+    model.fit(X_train, y_train, epochs=50, batch_size=32, verbose=2)
 
-    from sklearn.metrics import mean_absolute_error, mean_squared_error
-    import math
-
+    # ── EVALUATE ──
     y_pred = model.predict(X_test)
 
     y_test_reshaped = np.zeros((len(y_test), 4))
     y_pred_reshaped = np.zeros((len(y_pred), 4))
-
     y_test_reshaped[:, 3] = y_test
     y_pred_reshaped[:, 3] = y_pred.flatten()
 
     y_test_actual = scaler.inverse_transform(y_test_reshaped)[:, 3]
     y_pred_actual = scaler.inverse_transform(y_pred_reshaped)[:, 3]
 
-    mae = mean_absolute_error(y_test_actual, y_pred_actual)
+    mae  = mean_absolute_error(y_test_actual, y_pred_actual)
     rmse = math.sqrt(mean_squared_error(y_test_actual, y_pred_actual))
 
-    print("\nMODEL PERFORMANCE")
-    print("MAE:", mae)
-    print("RMSE:", rmse)
+    print(f"\nMODEL PERFORMANCE")
+    print(f"   MAE  : {mae:.2f}")
+    print(f"   RMSE : {rmse:.2f}")
 
+    # PREDICT TOMORROW
     last_seq = scaled_data[-time_step:]
     last_seq = np.reshape(last_seq, (1, time_step, 4))
-
     pred = model.predict(last_seq)
-
     temp = np.zeros((1, 4))
     temp[0][3] = pred
-
     predicted_price = scaler.inverse_transform(temp)[0][3]
 
-    return df, predicted_price, mae, rmse
+    print(f"   Predicted Tomorrow : ${predicted_price:.2f}")
+
+    # ── SAVE EVERYTHING ──
+    model.save(MODEL_PATH)
+    joblib.dump(scaler, SCALER_PATH)
+    joblib.dump(df, DATA_PATH)
+    joblib.dump({"mae": mae, "rmse": rmse}, METRICS_PATH)
+
+    print(f"\nModel Saved")
+
+
+def get_gold_prediction():
+    """Called by app.py — loads saved model, never trains."""
+
+    if not (os.path.exists(MODEL_PATH) and
+            os.path.exists(SCALER_PATH) and
+            os.path.exists(DATA_PATH) and
+            os.path.exists(METRICS_PATH)):
+        raise FileNotFoundError(
+            "No saved model found! Run 'python model.py' first to train and save the model."
+        )
+
+    print("Loading saved model...")
+
+    model      = load_model(MODEL_PATH)
+    scaler     = joblib.load(SCALER_PATH)
+    df         = joblib.load(DATA_PATH)
+    metrics    = joblib.load(METRICS_PATH)
+
+    scaled_data = scaler.transform(df)
+    last_seq    = scaled_data[-100:]
+    last_seq    = np.reshape(last_seq, (1, 100, 4))
+
+    pred = model.predict(last_seq)
+    temp = np.zeros((1, 4))
+    temp[0][3] = pred
+    predicted_price = scaler.inverse_transform(temp)[0][3]
+
+    return df, predicted_price, metrics["mae"], metrics["rmse"]
 
 
 def get_news_sentiment(country="Global"):
     try:
         query_map = {
             "Global": "gold price",
-            "India": "gold price india economy",
-            "USA": "gold price usa fed inflation",
-            "UK": "gold price uk economy",
-            "Japan": "gold price japan yen"
+            "India":  "gold price india economy",
+            "USA":    "gold price usa fed inflation",
+            "UK":     "gold price uk economy",
+            "Japan":  "gold price japan yen"
         }
 
         query = query_map.get(country, "gold price")
-
-        url = f"https://newsapi.org/v2/everything?q={query}&apiKey={NEWS_API_KEY}"
-        res = requests.get(url)
+        url   = f"https://newsapi.org/v2/everything?q={query}&apiKey={NEWS_API_KEY}"
+        res   = requests.get(url, timeout=5)
 
         articles_data = []
-        sentiments = []
-        polarities = []
+        sentiments    = []
+        polarities    = []
 
         if res.status_code == 200:
             articles = res.json()['articles']
@@ -147,10 +188,9 @@ def get_news_sentiment(country="Global"):
 
             for a in articles:
                 title = a['title']
-                desc = a['description'] or ""
-                link = a['url']
-
-                text = (title + " " + desc).lower()
+                desc  = a['description'] or ""
+                link  = a['url']
+                text  = (title + " " + desc).lower()
 
                 if "gold" not in text:
                     continue
@@ -164,8 +204,6 @@ def get_news_sentiment(country="Global"):
                     continue
 
                 polarity = TextBlob(text).sentiment.polarity
-
-                print(f"[Score: {score}] Polarity: {polarity:.3f} | {title[:60]}")
 
                 if polarity > 0:
                     s = "Positive"
@@ -186,20 +224,10 @@ def get_news_sentiment(country="Global"):
 
         return articles_data, sentiments, polarities
 
-    except:
+    except Exception as e:
+        print(f"News sentiment fetch failed: {e}")
         return [], ["Neutral"], [0]
 
 
 if __name__ == "__main__":
-    df, pred, mae, rmse = get_gold_prediction()
-
-    print("\nTEST OUTPUT")
-    print("Predicted Price:", pred)
-    print("MAE:", mae)
-    print("RMSE:", rmse)
-
-    articles, sentiments, polarities = get_news_sentiment()
-
-    print("\nNEWS SENTIMENT")
-    for i in range(len(articles)):
-        print(sentiments[i], "|", polarities[i], "|", articles[i][0])
+    train_and_save()
