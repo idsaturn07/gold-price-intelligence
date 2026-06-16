@@ -24,6 +24,19 @@
 
 ---
 
+## 🛠️ Skills Demonstrated
+
+- Time Series Forecasting
+- Deep Learning (LSTM)
+- MLOps & Model Lifecycle Management
+- Cloud Deployment (Azure App Service)
+- NLP & Sentiment Analysis
+- Azure AI Integration (Foundry Agents)
+- Data Engineering (yfinance, preprocessing, scaling)
+- Financial Analytics & Multi-currency Support
+
+---
+
 ## 📌 What It Does
 
 - 🔮 Predicts **tomorrow's gold price** using a deep learning LSTM model trained on 5 years of data
@@ -61,15 +74,15 @@
 | MAE | 101.17 |
 | RMSE | 135.38 |
 | Training Samples | 926 |
-| Training Data | 5 Years (2021–2026, GC=F Futures) |
+| Training Data | 5 years of historical GC=F futures data |
 | Features | Open, High, Low, Close |
 | Architecture | 2-Layer LSTM + Dropout (0.3) |
 | Optimizer | Adam |
 | Loss Function | MSE |
 | Train / Test Split | 80% / 20% |
-| Next Day Prediction | $4,214.07 (as of June 15, 2026) |
+| Next-Day Prediction | Generated dynamically after training |
 
-> Run `python model.py` to retrain and see updated values for your own run.
+> Run `python model.py` to retrain and see updated MAE / RMSE values for your own run.
 
 ---
 
@@ -95,11 +108,12 @@ gold-price-intelligence/
 │   ├── local.settings.example.json   # Settings template
 │   └── .gitignore
 │
-├── docs/                             # Screenshots
+├── docs/                             # Screenshots and deployment guide
 │   ├── dashboard.png
 │   ├── price-cards.png
 │   ├── chart-news.png
-│   └── sentiment-chatbot.png
+│   ├── sentiment-chatbot.png
+│   └── deployment.md                 # Detailed Azure deployment steps
 │
 ├── LICENSE
 └── README.md
@@ -137,8 +151,6 @@ gold-price-intelligence/
 
 ## ✅ Prerequisites
 
-Before starting, make sure you have:
-
 - [ ] Python 3.9+ → [python.org](https://python.org)
 - [ ] Azure subscription → [azure.microsoft.com/free](https://azure.microsoft.com/free)
 - [ ] Azure CLI → [aka.ms/installazurecli](https://aka.ms/installazurecli)
@@ -148,77 +160,25 @@ Before starting, make sure you have:
 
 ---
 
-## ⚙️ Step-by-Step Setup
+## ⚙️ Quick Start
 
-### Step 1 — Clone the Repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/idsaturn07/gold-price-intelligence.git
 cd gold-price-intelligence
 ```
 
----
-
-### Step 2 — Create Azure Resources
-
-#### 2A. Azure AI Foundry Project + Agent
-
-1. Go to [ai.azure.com](https://ai.azure.com) and sign in
-2. Click **New Project** → give it any name → click **Create**
-3. Go to **Settings** → copy the **Project Endpoint URL**
-   - Format: `https://your-resource.services.ai.azure.com/api/projects/your-project`
-4. In the left sidebar click **Agents** → **New Agent**
-5. Set agent name to exactly: `gold-bot`
-6. Under **Tools**, enable **Web Search** grounding
-7. Click **Deploy** → note the version number
-8. Go to **Settings → Keys** → copy the **API Key**
-
-#### 2B. Azure Storage Account + Blob Container
-
-1. In [portal.azure.com](https://portal.azure.com) search **Storage Accounts** → **Create**
-2. Fill in name, region, redundancy (LRS is fine) → **Create**
-3. Once deployed → **Containers** → **+ Container** → name it exactly: `models` → **Create**
-4. Go to **Access Keys** → **Show** → copy the **Connection string**
-
-#### 2C. Azure App Service
-
-1. Search **App Services** → **Create**
-2. Set **Runtime**: Python 3.9, **OS**: Linux
-3. Once deployed → **Configuration → Application Settings** → add:
-
-| Name | Value |
-|---|---|
-| `AZURE_PROJECT_ENDPOINT` | Your Foundry project endpoint URL |
-| `AZURE_OPENAI_ENDPOINT` | `https://your-resource.services.ai.azure.com/openai/v1` |
-| `AZURE_OPENAI_KEY` | Your Foundry API key |
-| `AZURE_DEPLOYMENT_NAME` | Your model deployment name in Foundry |
-| `AZURE_AGENT_NAME` | `gold-bot` |
-| `AZURE_AGENT_VERSION` | `2` |
-| `NEWS_API_KEY` | Your NewsAPI key |
-
-4. **General Settings → Startup Command**: `bash startup.sh` → **Save**
-
-#### 2D. Azure Function App
-
-1. Search **Function App** → **Create**
-2. Set **Runtime**: Python 3.9, **Hosting**: Consumption (free)
-3. Once deployed → **Configuration → Application Settings** → add:
-
-| Name | Value |
-|---|---|
-| `AzureWebJobsStorage` | Storage account connection string |
-| `BLOB_CONNECTION_STRING` | Storage account connection string |
-| `NEWS_API_KEY` | Your NewsAPI key |
-
-4. Click **Save**
-
----
-
-### Step 3 — Set Up the Web App Locally
+### 2. Install Dependencies
 
 ```bash
 cd app
 pip install -r requirements.txt
+```
+
+### 3. Configure Environment
+
+```bash
 cp .env.example .env
 ```
 
@@ -234,112 +194,27 @@ AZURE_AGENT_VERSION=2
 NEWS_API_KEY=your_newsapi_key_here
 ```
 
-> Rename `.env.example` to `.env` after filling in your values.
-
----
-
-### Step 4 — Train the LSTM Model
+### 4. Train the Model
 
 ```bash
-cd app
 python model.py
 ```
 
-This downloads 5 years of gold futures data, trains the LSTM (~5–15 min), and saves 4 model artifact files locally. Expected output:
+Downloads 5 years of gold futures data and trains the LSTM (~5–15 min). Saves model artifacts locally.
 
-```
-Fetching gold data...
-Data loaded: 1258 rows | 2021-06-15 to 2026-06-15
-Training model on 926 samples...
-Epoch 1/50 ...
-...
-MODEL PERFORMANCE
-   MAE  : 101.17
-   RMSE : 135.38
-   Predicted Tomorrow : $4214.07
-Model Saved
-```
-
-> ⚠️ You must run this once before launching the app. The app will show an error on startup if model files are missing.
-
----
-
-### Step 5 — Run Locally
+### 5. Run the App
 
 ```bash
-cd app
 streamlit run app.py
 ```
 
 Open [http://localhost:8501](http://localhost:8501)
 
----
-
-### Step 6 — Set Up Retraining Function Locally
-
-```bash
-cd retrain-function
-pip install -r requirements.txt
-cp local.settings.example.json local.settings.json
-```
-
-Fill in `local.settings.json`:
-
-```json
-{
-  "IsEncrypted": false,
-  "Values": {
-    "FUNCTIONS_WORKER_RUNTIME": "python",
-    "AzureWebJobsStorage": "your_storage_connection_string_here",
-    "BLOB_CONNECTION_STRING": "your_storage_connection_string_here",
-    "NEWS_API_KEY": "your_newsapi_key_here"
-  }
-}
-```
-
-> Rename `local.settings.example.json` to `local.settings.json` after filling in your values.
-
-Test locally (requires Azure Functions Core Tools):
-
-```bash
-func start
-```
+> For full Azure resource setup and cloud deployment instructions, see [docs/deployment.md](docs/deployment.md)
 
 ---
 
-## 🚀 Deployment
-
-### Web App → Azure App Service
-
-```bash
-cd app
-zip -r app.zip . -x "*.pkl" -x "*.keras" -x ".env" -x "__pycache__/*"
-az webapp deployment source config-zip \
-  --resource-group YOUR_RESOURCE_GROUP \
-  --name YOUR_APP_SERVICE_NAME \
-  --src app.zip
-```
-
-Upload model artifacts via Azure Portal → App Service → **Advanced Tools (Kudu)** → Debug Console → `site/wwwroot/` → drag and drop:
-- `gold_model.keras`
-- `gold_scaler.pkl`
-- `gold_data.pkl`
-- `gold_metrics.pkl`
-
-Your app will be live at: `https://YOUR_APP_SERVICE_NAME.azurewebsites.net`
-
-### Retraining Function → Azure Functions
-
-```bash
-cd retrain-function
-func azure functionapp publish YOUR_FUNCTION_APP_NAME
-```
-
-Once deployed, the function runs automatically every day at **1:00 AM**, retrains the model, and uploads fresh artifacts to Blob Storage.
-
----
-
-## 🔐 Environment Variables Reference
+## 🔐 Environment Variables
 
 ### `app/.env.example`
 
