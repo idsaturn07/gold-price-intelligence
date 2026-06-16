@@ -59,7 +59,7 @@ def train_and_save():
     df.columns.name = None
     df.index.name = None
 
-    logging.info(f"Data loaded: {len(df)} rows")
+    logging.info(f"Data loaded: {len(df)} rows | {df.index.min()} to {df.index.max()}")
 
     scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(df)
@@ -115,7 +115,7 @@ def train_and_save():
     last_seq = np.reshape(last_seq, (1, time_step, 4))
     pred = model.predict(last_seq)
     temp = np.zeros((1, 4))
-    temp[0][3] = pred
+    temp[0][3] = pred.flatten()[0]   # FIX: avoid NumPy deprecation warning
     predicted_price = scaler.inverse_transform(temp)[0][3]
 
     logging.info(f"Predicted Tomorrow: ${predicted_price:.2f}")
@@ -126,7 +126,7 @@ def train_and_save():
     joblib.dump(df, DATA_PATH)
     joblib.dump({"mae": mae, "rmse": rmse}, METRICS_PATH)
 
-    logging.info("Model artifacts saved locally.")
+    logging.info("Model artifacts saved successfully.")
 
 
 def get_news_sentiment(country="Global"):
@@ -149,6 +149,7 @@ def get_news_sentiment(country="Global"):
 
         if res.status_code == 200:
             articles = res.json()['articles']
+
             important_words = [
                 "gold", "price", "market", "inflation",
                 "interest", "rates", "economy", "demand", "central bank"
@@ -163,12 +164,22 @@ def get_news_sentiment(country="Global"):
                 if "gold" not in text:
                     continue
 
-                score = sum(1 for word in important_words if word in text)
+                score = 0
+                for word in important_words:
+                    if word in text:
+                        score += 1
+
                 if score < 2:
                     continue
 
                 polarity = TextBlob(text).sentiment.polarity
-                s = "Positive" if polarity > 0 else ("Negative" if polarity < 0 else "Neutral")
+
+                if polarity > 0:
+                    s = "Positive"
+                elif polarity < 0:
+                    s = "Negative"
+                else:
+                    s = "Neutral"
 
                 articles_data.append((title, link))
                 sentiments.append(s)
