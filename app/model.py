@@ -29,7 +29,7 @@ METRICS_PATH = "gold_metrics.pkl"
 
 
 def train_and_save():
-    """Run this manually to retrain and save the model."""
+    """Run manually to retrain and save the model: python model.py"""
 
     print("Fetching gold data...")
     df = None
@@ -111,17 +111,17 @@ def train_and_save():
     print(f"   MAE  : {mae:.2f}")
     print(f"   RMSE : {rmse:.2f}")
 
-    # PREDICT TOMORROW
+    # ── PREDICT TOMORROW ──
     last_seq = scaled_data[-time_step:]
     last_seq = np.reshape(last_seq, (1, time_step, 4))
     pred = model.predict(last_seq)
     temp = np.zeros((1, 4))
-    temp[0][3] = pred
+    temp[0][3] = pred.flatten()[0]   # FIX: avoid NumPy deprecation warning
     predicted_price = scaler.inverse_transform(temp)[0][3]
 
     print(f"   Predicted Tomorrow : ${predicted_price:.2f}")
 
-    # ── SAVE EVERYTHING ──
+    # ── SAVE ──
     model.save(MODEL_PATH)
     joblib.dump(scaler, SCALER_PATH)
     joblib.dump(df, DATA_PATH)
@@ -143,10 +143,10 @@ def get_gold_prediction():
 
     print("Loading saved model...")
 
-    model      = load_model(MODEL_PATH)
-    scaler     = joblib.load(SCALER_PATH)
-    df         = joblib.load(DATA_PATH)
-    metrics    = joblib.load(METRICS_PATH)
+    model   = load_model(MODEL_PATH)
+    scaler  = joblib.load(SCALER_PATH)
+    df      = joblib.load(DATA_PATH)
+    metrics = joblib.load(METRICS_PATH)
 
     scaled_data = scaler.transform(df)
     last_seq    = scaled_data[-100:]
@@ -154,7 +154,7 @@ def get_gold_prediction():
 
     pred = model.predict(last_seq)
     temp = np.zeros((1, 4))
-    temp[0][3] = pred
+    temp[0][3] = pred.flatten()[0]   # FIX: avoid NumPy deprecation warning
     predicted_price = scaler.inverse_transform(temp)[0][3]
 
     return df, predicted_price, metrics["mae"], metrics["rmse"]
