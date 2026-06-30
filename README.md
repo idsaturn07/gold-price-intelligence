@@ -1,5 +1,6 @@
-# 🪙 Gold Price Intelligence
-### AI-Powered Financial Market Forecasting with LSTM & Azure AI Foundry
+# 🪙 GoldPulse 
+
+### AI-Powered Gold Price Intelligence Platform — LSTM Forecasting & Azure AI Foundry
 
 > An end-to-end machine learning platform for financial market forecasting — using gold as the primary use case. Built with LSTM deep learning, real-time news sentiment analysis, and an Azure AI Foundry chatbot assistant.
 
