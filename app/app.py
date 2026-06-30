@@ -5,7 +5,7 @@ import requests
 
 # PAGE CONFIG
 st.set_page_config(
-    page_title="Gold Price Intelligence",
+    page_title="GoldPulse",
     page_icon="🪙",
     layout="wide"
 )
@@ -126,7 +126,7 @@ with st.sidebar:
     st.markdown("""
     <div style='text-align:center; padding: 1rem 0 1.5rem;'>
         <div style='font-size:2.5rem'>🪙</div>
-        <div style='color:#d4a843; font-weight:700; font-size:1.1rem'>Gold Intelligence</div>
+        <div style='color:#d4a843; font-weight:700; font-size:1.1rem'>GoldPulse</div>
         <div style='color:#5a7a9a; font-size:0.8rem'>AI-Powered Market Analysis</div>
     </div>
     """, unsafe_allow_html=True)
@@ -146,7 +146,7 @@ with st.sidebar:
 st.markdown(f"""
 <div class="gold-header">
     <div>
-        <h1>🪙 Gold Price Intelligence</h1>
+        <h1>🪙 GoldPulse</h1>
         <p>AI-powered predictions · Live sentiment analysis · {country} market</p>
     </div>
     <div class="gold-badge">⚡ Live Analysis</div>
@@ -412,7 +412,7 @@ if user_input:
 # ── FOOTER ──
 st.markdown("""
 <div style='text-align:center; padding: 2rem 0 1rem; color:#2a4a6a; font-size:0.8rem; border-top:1px solid #1e3a5f; margin-top:2rem'>
-    🪙 Gold Price Intelligence · Powered by Azure AI Foundry · LSTM Prediction Model
+    🪙 GoldPulse · Powered by Azure AI Foundry · LSTM Prediction Model
     <br><span style='color:#1a3a5a'>Data sourced from Yahoo Finance & NewsAPI · Not financial advice</span>
 </div>
 """, unsafe_allow_html=True)
